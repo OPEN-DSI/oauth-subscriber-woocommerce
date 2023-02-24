@@ -52,6 +52,8 @@ class Oauth1
      * - realm: OAuth realm.
      * - signature_method: Signature method. One of 'HMAC-SHA1', 'RSA-SHA1', or
      *   'PLAINTEXT'. Defaults to 'HMAC-SHA1'.
+	 * - api_version: WooCommerce API version. Defaults to 'v3'.
+	 * - include_post_parameters_in_signature: Include the POST parameters in the signature. Defaults to false.
      *
      * @param array $config Configuration array.
      */
@@ -63,6 +65,8 @@ class Oauth1
             'consumer_key'     => 'anonymous',
             'consumer_secret'  => 'anonymous',
             'signature_method' => self::SIGNATURE_METHOD_HMAC,
+			'api_version'                          => 'v3',
+			'include_post_parameters_in_signature' => false,
         ];
 
         foreach ($config as $key => $value) {
@@ -136,7 +140,7 @@ class Oauth1
         unset($params['oauth_signature']);
 
         // Add POST fields if the request uses POST fields and no files
-        if ($request->getHeaderLine('Content-Type') === 'application/x-www-form-urlencoded') {
+        if ($request->getHeaderLine('Content-Type') === 'application/x-www-form-urlencoded' && !empty($this->config['include_post_parameters_in_signature'])) {
             $body = Query::parse($request->getBody()->getContents());
             $params += $body;
         }
@@ -241,8 +245,10 @@ class Oauth1
      */
     private function signUsingHmac($algo, $baseString)
     {
-        $key = rawurlencode($this->config['consumer_secret']) . '&';
-        if (isset($this->config['token_secret'])) {
+        $key = rawurlencode($this->config['consumer_secret']);
+
+		// Add token only if present to avoid wrong encoding due to the superflous ampersand (&)
+		if((isset($this->config['token_secret']) && !empty($this->config['token_secret'])) || !\in_array($this->apiVersion, ['v1', 'v2'])) {
             $key .= rawurlencode($this->config['token_secret']);
         }
 
